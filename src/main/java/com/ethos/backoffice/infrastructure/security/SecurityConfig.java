@@ -16,6 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.MediaType;
 
 @Configuration
 @EnableWebSecurity
@@ -51,8 +52,20 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) ->
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(
+                                    "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\",\"timestamp\":\"" +
+                                    java.time.LocalDateTime.now() + "\",\"fieldErrors\":null}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(
+                                    "{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\",\"timestamp\":\"" +
+                                    java.time.LocalDateTime.now() + "\",\"fieldErrors\":null}");
+                        })
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(rateLimiterFilter, JwtAuthenticationFilter.class);
