@@ -1,102 +1,114 @@
-# Ethos PBS - Reto Técnico: API para backoffice
+# Backoffice API
 
-  
+REST API MVP built with Spring Boot and Hexagonal Architecture as part of the Ethos PBS technical challenge.
 
-## 🎯 Objetivo
+## Tech Stack
 
-Construir un MVP de una API para backoffice aplicando mejores prácticas de desarrollo y una arquitectura limpia.
+- **Java 17** + **Spring Boot 3.5**
+- **Spring Security** — JWT-based authentication, role-based access control (ADMIN / USER)
+- **Spring Data JPA** + **PostgreSQL** via Supabase
+- **Flyway** — versioned schema migrations
+- **Custom Rate Limiter** — sliding window, `ConcurrentHashMap`, no external libraries
+- **springdoc-openapi** — Swagger UI with JWT support
 
-  
+## Architecture
 
-## 🚀 Stack Tecnológico & Opciones
+Hexagonal (Ports & Adapters):
 
-  
+```
+domain/         → models, input/output port interfaces, domain services (no Spring)
+application/    → use cases, DTO orchestration
+infrastructure/ → REST controllers, JPA adapters, security filters, config
+shared/         → DTOs, exceptions, OpenAPI annotations
+```
 
-**Backend (Elige uno):**
+## Prerequisites
 
-- Opción A: Node.js con Elysia (Recomendado)
+- Java 17
 
-- Opción B: Python con FastAPI
+## Setup
 
--  **Requisito No Negociable:** Arquitectura Hexagonal (Ports & Adapters).
+> **For evaluators:** A Supabase instance is already provisioned. Copy `.env.example` to `.env` and fill in only `DB_PASSWORD` with the value provided.
 
-  
+**1. Clone and configure environment**
 
-**Base de Datos (Elige uno):**
+```bash
+cp .env.example .env
+# Set DB_PASSWORD with the provided value
+```
 
-- Opción A: Supabase (PostgreSQL) (Recomendado)
+**2. Database**
 
-- Opción B: MongoDB Local
+The app connects to a PostgreSQL instance (Supabase recommended). Flyway runs migrations automatically on startup. No manual SQL needed.
 
-  
+**3. Run**
 
-## 📋 Alcance del Entregable (MVP)
+```bash
+./gradlew bootRun
+```
 
-  
+The app seeds an admin user on startup:
+- Email: `admin@backoffice.com`
+- Password: `admin`
 
-1.  **Backend con Arquitectura Hexagonal:**
+## API
 
-- Debe tener al menos dos entidades claras (ej. User y Project)
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 
-- Debe exponer un endpoint para autenticación
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/auth/login` | Public |
+| POST | `/api/users` | Public |
+| GET / PUT / DELETE | `/api/users/**` | ADMIN |
+| GET / POST / PUT / DELETE | `/api/projects/**` | Authenticated |
 
-- Debe de contar con rutas protegidas
+**Auth flow:**
+1. `POST /api/auth/login` → returns `{ "token": "..." }`
+2. Add header `Authorization: Bearer <token>` to subsequent requests
 
-- Implementación de un rate limiter
+## Testing the Flow
 
-	- Implementar un middleware de Rate Limiter sin utilizar ningún paquete o tecnología externa dedicada a rate limiting. Solo se permiten las herramientas básicas del lenguaje.
+The recommended way to explore the API is via Swagger UI at `http://localhost:8080/swagger-ui/index.html`.
 
-		**Requisitos Funcionales**
+**As a regular user:**
 
-	1.  **Almacenamiento en Memoria**
+1. `POST /api/users` — register a new user with email, name and password
+2. `POST /api/auth/login` — login with those credentials, copy the returned `token`
+3. Click **Authorize** in Swagger UI and paste the token
+4. `POST /api/projects` — create a project (use your user ID as `ownerId`)
+5. `GET /api/projects` — list all projects
+6. `GET /api/projects/{id}` — get the created project by ID
+7. `PUT /api/projects/{id}` — update name, description or status
+8. `DELETE /api/projects/{id}` — delete the project
 
-		- Debe mantener un registro de las peticiones por IP o por usuario autenticado
+**As admin:**
 
-		- Utilizar estructuras de datos nativas (objetos, Maps, etc.)
+9. `POST /api/auth/login` — login with `admin@backoffice.com` / `admin`, copy the token
+10. Click **Authorize** and paste the admin token
+11. `GET /api/users` — list all users (ADMIN only)
+12. `GET /api/users/{id}` — get a specific user
 
-	2.  **Configuración del Límite**
+**Security scenarios:**
 
-		El Rate Limiter debe permitir configurar:
+13. Try `GET /api/users` with a regular user token → `403 Forbidden`
+14. Try any protected endpoint without a token → `401 Unauthorized`
 
-		- Ventana de tiempo: Por ejemplo, 60 segundos, 15 minutos, 1 hora
+## Rate Limiter
 
-		- Número máximo de peticiones: Por ejemplo, 100 peticiones por ventana
+Tracks requests per authenticated user (by email) or by IP for anonymous requests. Configurable via `.env`:
 
-- Debe exponer endpoints de la API para el CRUD, por ejemplo, GET /api/users y GET /api/projects
+```
+RATE_LIMITER_MAX_REQUESTS=60
+RATE_LIMITER_WINDOW_SECONDS=60
+```
 
-- La lógica de negocio debe estar en el "dominio"
+Exceeding the limit returns `429 Too Many Requests`.
 
-2.  **Conexión a Base de Datos:** La app debe estar conectada a la base de datos elegida, con al menos una tabla/colección creada y un ejemplo de lectura/escritura real
+## Tests
 
-  
+```bash
+./gradlew test
+```
 
-## ⚙️ Proceso de Desarrollo y Entrega
-
-  
-
-1.  **Fork** este repositorio
-
-2.  **Desarrolla por Módulos:** Utiliza una estrategia de branches para organizar tu trabajo (ej. feat/login, feat/projects-table)
-
-3.  **Pull Requests (PRs):** Abre Pull Requests en tu propio fork para integrar las features a tu rama principal. Esto nos permitirá evaluar tu proceso de desarrollo y forma de organizar el trabajo
-
-4.  **Plazo de Entrega:**  **Miércoles a las 18:00 hrs** (5 días naturales a partir de hoy). Al finalizar, asegúrate de que el código final esté en la rama main de tu fork y compártenos el link
-
-  
-
-## 📊 Criterios de Evaluación
-
-| Categoría | Descripción |
-|-----------|-------------|
-| **Cumplimiento Funcional** | El proyecto cumple con todas las pantallas y funcionalidades listadas en el alcance |
-| **Arquitectura y Código Limpio** | Implementación correcta de la Arquitectura Hexagonal. Código bien estructurado, legible y con separación de responsabilidades |
-| **Proceso de Desarrollo (Git)** | Uso de branches, commits atomicos y descriptivos y Pull Requests bien documentados. Entre más modularizado el desarrollo, mejor evaluación |
-| **Stack Tecnológico (Bonus)** | Uso de Supabase y Elysia será considerado como valor agregado |
-| **Extra Points** | Funcionalidad extra, documentación excepcional, tests, etc. |
-
-  
-  
-
----
-
-Te deseamos el mejor éxito en este reto.
+- **Unit tests** — domain services (`UserService`, `ProjectService`) and security (`JwtService`, `RateLimiterFilter`) using Mockito
+- **Slice tests** — `@WebMvcTest` for all controllers, covering auth (401), access control (403), validation (400) and happy paths
